@@ -1,5 +1,5 @@
-#include "laser_point_labeling/headers.h"
-#include "laser_point_labeling/Process.h"
+#include "laser_point_labeling/ref/headers.h"
+#include "laser_point_labeling/ref/Process.h"
 
 class Camera
 {

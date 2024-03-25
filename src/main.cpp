@@ -1,11 +1,14 @@
-#include "laser_point_labeling/Camera.h"
+#include "laser_point_labeling/ImgProcess.h"
 
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "laser_point_labeling");
+    ros::NodeHandle nh;
 
-    Camera camera;
-    camera.Subscribe_img();
+    ImgProcess imgproc;
+
+    imgproc.subscribe();
+
     ros::spin();
 
     return 0;

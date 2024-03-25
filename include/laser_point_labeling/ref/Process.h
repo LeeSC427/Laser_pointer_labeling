@@ -1,4 +1,4 @@
-#include "laser_point_labeling/headers.h"
+#include "laser_point_labeling/ref/headers.h"
 
 class Corner
 {
