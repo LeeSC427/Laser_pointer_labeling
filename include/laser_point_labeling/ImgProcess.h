@@ -70,9 +70,8 @@ std::vector<cv::Point> ImgProcess::find_contour(cv::Mat& _img, cv::Mat& _proc_im
         largest_contour = contours[largest_contour_index];
 
         cv::drawContours(_img, contours, largest_contour_index, cv::Scalar(0,0,127), 2);
-
-        return largest_contour;
     }
+    return largest_contour;
 }
 
 std::vector<Corner> ImgProcess::find_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point> _contours)
@@ -96,11 +95,8 @@ std::vector<Corner> ImgProcess::find_corners(cv::Mat& _img, cv::Mat& _proc_img, 
         
         if(cur_corners.size() == 4)
         {
+            ROS_INFO("NUMBER OF CURRENT CORNERS ARE 4");
             prev_corners = cur_corners;
-        }
-        else
-        {
-            prev_corners.clear();
         }
 
         draw_corners(_img, _proc_img, cur_corners);
@@ -109,7 +105,7 @@ std::vector<Corner> ImgProcess::find_corners(cv::Mat& _img, cv::Mat& _proc_img, 
     {
         prev_corners.clear();
         is_init = true;
-        ROS_WARN("NUMBER OF PREVIOUS CORNERS ARE NOT 4");
+        ROS_WARN("NUMBER OF CURRENT CORNERS ARE NOT 4");
     }
     
     return cur_corners;
@@ -121,12 +117,12 @@ std::vector<Corner> ImgProcess::find_first_corners(std::vector<cv::Point2f>& _co
 
     Corner corner;
     std::vector<Corner> temp_corners;
-    calculate.ordering(_corners);
+    std::vector<cv::Point2f> ordered_corners = calculate.ordering(_corners);
     prev_corners.clear();
 
-    for(int i = 0; i < _corners.size(); i++)
+    for(int i = 0; i < ordered_corners.size(); i++)
     {
-        corner.coord = _corners[i];
+        corner.coord = ordered_corners[i];
         corner.label = i;
 
         temp_corners.push_back(corner);
@@ -157,6 +153,7 @@ std::vector<Corner> ImgProcess::find_recur_corners(std::vector<cv::Point2f>& _co
     }
     else
     {
+        ROS_WARN("NUMBER OF PREVIOUS CORNERS ARE NOT 4");
         is_init = true;
     }
 
@@ -171,7 +168,7 @@ std::vector<Corner> ImgProcess::matching_point(std::vector<cv::Point2f> _corners
     Corner corner;
     for(int i = 0; i < _moved_corners.size(); i++)
     {
-        double min_dist = INFINITY;
+        double min_dist = std::numeric_limits<double>::infinity();
         int min_index;
         for(int j = 0; j < prev_corners.size(); j++)
         {
@@ -185,7 +182,8 @@ std::vector<Corner> ImgProcess::matching_point(std::vector<cv::Point2f> _corners
         }
 
         corner.coord = _corners[min_index];
-        corner.label = min_index;
+        corner.label = min_index + 1;
+
         temp_corners.push_back(corner);
     }
 
@@ -223,9 +221,14 @@ void ImgProcess::draw_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<Cor
     for(int i = 0; i < _cur_corners.size(); i++)
     {
         cv::circle(_img, _cur_corners[i].coord, 3, cv::Scalar(127,0,0), -1);
-        cv::putText(_img, std::to_string(_cur_corners[i].label), _cur_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,0), 2);
+        cv::putText(_img, std::to_string(_cur_corners[i].label), _cur_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,255), 2);
         cv::circle(_proc_img, _cur_corners[i].coord, 3, cv::Scalar(127,0,0), -1);
         cv::putText(_proc_img, std::to_string(_cur_corners[i].label), _cur_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,255,0), 2);
+    }
+    for(int i = 0; i < prev_corners.size(); i++)
+    {
+        cv::circle(_img, prev_corners[i].coord, 3, cv::Scalar(127,0,0), -1);
+        cv::putText(_img, std::to_string(prev_corners[i].label), prev_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,0,0), 2);
     }
 }
 
@@ -279,9 +282,7 @@ void ImgProcess::Callback(const sensor_msgs::ImageConstPtr& _msg)
     std::vector<cv::Point> contours = find_contour(image, proc_img);
 
     if(!contours.empty())
-    {
         std::vector<Corner> corners = find_corners(image, proc_img, contours);
-    }
     else
         ROS_WARN("EMPTY CONTOURS");
 

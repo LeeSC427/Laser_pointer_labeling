@@ -14,7 +14,7 @@ class Calculate
     double distance(cv::Point2f p1, cv::Point2f p2);
     std::vector<double> angles(std::vector<cv::Point2f>& _corners_vec, cv::Point2f center);
 
-    void ordering(std::vector<cv::Point2f>& _corners);
+    std::vector<cv::Point2f> ordering(std::vector<cv::Point2f>& _corners);
 
     Calculate(){}
     ~Calculate(){}
@@ -105,7 +105,7 @@ std::vector<double> Calculate::angles(std::vector<cv::Point2f>& _corners_vec, cv
     return angle_vec;
 }
 
-void Calculate::ordering(std::vector<cv::Point2f>& _corners_vec)
+std::vector<cv::Point2f> Calculate::ordering(std::vector<cv::Point2f>& _corners_vec)
 {
     ROS_INFO("ORDERING");
 
@@ -116,12 +116,12 @@ void Calculate::ordering(std::vector<cv::Point2f>& _corners_vec)
     centroid = find_centroid(_corners_vec);
     angle_vec = angles(_corners_vec, centroid);
 
-    for(int i = 0; i < _corners_vec.size(); ++i)
+    for(int i = 0; i < _corners_vec.size(); i++)
     {
         int min_idx = std::min_element(angle_vec.begin(), angle_vec.end())-angle_vec.begin();
         ordered_corners.push_back(_corners_vec[min_idx]);
         angle_vec[min_idx] = INFINITY;
     }
 
-    _corners_vec = ordered_corners;
+    return ordered_corners;
 }
