@@ -26,7 +26,7 @@ class Process
 
         cv::Mat Preprocessing(cv::Mat& _img);
 
-        std::vector<cv::Point> find_contour(cv::Mat& _image, cv::Mat& _preprocessed_img);
+        std::vector<cv::Point2f> find_contour(cv::Mat& _image, cv::Mat& _preprocessed_img);
 
         std::vector<Corner> find_corners(cv::Mat& _img, cv::Mat& _preprocessed_img, std::vector<cv::Point2f> contour);
 
@@ -35,6 +35,7 @@ class Process
         void orderConers(std::vector<cv::Point2f>& _corners);
 
         cv::Point2f find_centroid(std::vector<Corner>& _corner_vec);
+        cv::Point2f find_centroid(std::vector<cv::Point2f>& _coner_vec);
 
         cv::Point2f translation(cv::Point2f p1, cv::Point2f p2);
 
@@ -61,8 +62,8 @@ cv::Mat Process::Preprocessing(cv::Mat& _img){
     return img_hsv;
 }
 
-std::vector<cv::Point> Process::find_contour(cv::Mat& _image, cv::Mat& _preprocessed_img){
-    std::vector<std::vector<cv::Point>> contours;
+std::vector<cv::Point2f> Process::find_contour(cv::Mat& _image, cv::Mat& _preprocessed_img){
+    std::vector<std::vector<cv::Point2f>> contours;
     std::vector<cv::Vec4i> hierarchy;
 
     cv::findContours(_preprocessed_img, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
@@ -80,7 +81,7 @@ std::vector<cv::Point> Process::find_contour(cv::Mat& _image, cv::Mat& _preproce
         }
     }
 
-    std::vector<cv::Point> largest_contour = contours[largest_contour_index];
+    std::vector<cv::Point2f> largest_contour = contours[largest_contour_index];
 
     cv::drawContours(_image, contours, largest_contour_index, cv::Scalar(0,0,127), 2);
 
@@ -88,6 +89,7 @@ std::vector<cv::Point> Process::find_contour(cv::Mat& _image, cv::Mat& _preproce
 }
 
 std::vector<Corner> Process::find_corners(cv::Mat& _img, cv::Mat& _preprocessed_img, std::vector<cv::Point2f> contour){
+    std::vector<Corner> cur_corners;
     double epsilon = 0.1 * cv::arcLength(contour, true);
     std::vector<cv::Point2f> corners;
     cv::TermCriteria term_criteria = cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1);
@@ -95,25 +97,25 @@ std::vector<Corner> Process::find_corners(cv::Mat& _img, cv::Mat& _preprocessed_
     cv::approxPolyDP(contour, corners, epsilon, true);
     cv::cornerSubPix(_preprocessed_img, corners, cv::Size(11,11), cv::Size(-1,-1), term_criteria);
 
-    orderConers(corners);
+    //orderConers(corners);
+    Corner corner;
 
     if(corners.size() == 4)
     {
         if(is_init)
         {
+            orderConers(corners);
+
             corners_prev.clear();
             for(int j = 0; j < corners.size(); j++)
             {   
-                Corner corner;
-                cv::circle(_img, corners[j], 3, cv::Scalar(127,0,0), -1);
-                cv::putText(_img, std::to_string(j+1), corners[j], cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,0), 2);
-
                 corner.coord = corners[j];
                 corner.label = j;
 
-                corners_prev.push_back(corner);
+                cur_corners.push_back(corner);
             }
 
+            corners_prev = cur_corners;
             is_init = false;
         }
         else
@@ -122,12 +124,12 @@ std::vector<Corner> Process::find_corners(cv::Mat& _img, cv::Mat& _preprocessed_
             cv::Point2f cur_center;
             cv::Point2f center_dist;
 
-            if(corner_prev.size() == 4)
+            if(corners_prev.size() == 4)
             {
                 prev_center = find_centroid(corners_prev);
                 cur_center = find_centroid(corners);
 
-                center_dist = translation(corners_prev, corners);
+                center_dist = translation(prev_center, cur_center);
 
                 std::vector<cv::Point2f> moved_corners;
 
@@ -140,12 +142,41 @@ std::vector<Corner> Process::find_corners(cv::Mat& _img, cv::Mat& _preprocessed_
                 }
 
                 //Compare distance from moved_corners to prev_corners
-                /*Code*/
+                for(int i = 0; i < moved_corners.size(); i++)
+                {
+                    double min_dist = INFINITY;
+                    for(int j = 0; j < corners_prev.size(); j++)
+                    {
+                        double prev_x, prev_y;
+                        double _distance;
+
+                        _distance = distance(moved_corners[i], corners_prev[j].coord);
+
+                        if(min_dist > _distance)
+                            min_dist = _distance;
+                    }
+                    corner.coord = moved_corners[i];
+                    corner.label = min_dist;
+                    cur_corners.push_back(corner);
+                }
+                
+                corners_prev = cur_corners;
+
+                for(int i = 0; i < cur_corners.size(); i++)
+                {
+                    cv::circle(_img, cur_corners[i].coord, 3, cv::Scalar(127,0,0), -1);
+                    cv::putText(_img, std::to_string(i+1), cur_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,0), 2);
+                }
+
             }
+            else
+                ROS_WARN("NUMBER OF PREVIOUS CORNERS ARE NOT 4");
         }
     }
     else
         is_init = true;
+
+    return cur_corners;
 }
 
 void Process::orderConers(std::vector<cv::Point2f>& _corners){
@@ -180,8 +211,26 @@ cv::Point2f Process::find_centroid(std::vector<Corner>& _corner_vec)
 
     for(int i = 0; i < _corner_vec.size(); i++)
     {
-        cent_x += _corner_vect[i].coord.x;
-        cent_y += _corner_vect[i].coord.y;
+        cent_x += _corner_vec[i].coord.x;
+        cent_y += _corner_vec[i].coord.y;
+    }
+
+    center.x = cent_x /= _corner_vec.size();
+    center.y = cent_y /= _corner_vec.size();
+
+    return center;
+}
+
+cv::Point2f Process::find_centroid(std::vector<cv::Point2f>& _corner_vec)
+{   
+    cv::Point2f center;
+    double cent_x = 0.0;
+    double cent_y = 0.0;
+
+    for(int i = 0; i < _corner_vec.size(); i++)
+    {
+        cent_x += _corner_vec[i].x;
+        cent_y += _corner_vec[i].y;
     }
 
     center.x = cent_x /= _corner_vec.size();
@@ -215,7 +264,29 @@ int Process::find_matching_label(cv::Point2f corner)
     return min_label;
 }
 
+
 double Process::distance(cv::Point2f p1, cv::Point2f p2)
 {
     return std::sqrt(std::pow((p1.x - p2.x),2) + std::pow((p1.y - p2.y),2));
+}
+
+void Process::show_videos(cv::Mat& _img, cv::Mat& _preprocessed_img)
+{
+    if(_img.cols >= 1920 || _img.rows >= 1080)
+    {
+        cv::Mat resize_img;
+        cv::Mat resize_masked_img;
+        cv::resize(_img, resize_img, cv::Size(_img.cols/2.0, _img.rows/2.0));
+        cv::resize(_preprocessed_img, resize_masked_img, cv::Size(_preprocessed_img.cols/2.0, _preprocessed_img.rows/2.0));
+        cv::imshow("Original image", resize_img);
+        cv::imshow("Processed image", resize_masked_img);
+    }
+    else
+    {
+        cv::imshow("Original image", _img);
+        cv::imshow("Processed image", _preprocessed_img);
+    }
+    cv::moveWindow("Original image", 960,0);
+    cv::moveWindow("Original image", 960,600);
+    cv::waitKey(1);
 }
