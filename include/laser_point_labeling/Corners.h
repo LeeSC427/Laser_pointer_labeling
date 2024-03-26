@@ -2,15 +2,13 @@
 
 #ifndef Corner_H
 #define Corner_H
+
 class Corner
 {
     public:
         cv::Point coord;
         int label;
-
-    Corner()
-    {}
-    ~Corner()
-    {}
+    Corner(){}
+    ~Corner(){}
 };
 #endif

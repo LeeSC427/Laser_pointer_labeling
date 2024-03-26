@@ -1,127 +1,98 @@
-#include "laser_point_labeling/headers.h"
-#include "laser_point_labeling/Points.h"
+#include "laser_point_labeling/Corners.h"
 
 class Calculate
 {
+    private:
     public:
+        double get_distance(cv::Point p1, cv::Point p2);
+        double get_angle(cv::Point p1, cv::Point p2);
+        int get_min_index(std::vector<double> _vector);
 
-    cv::Point2f find_centroid(std::vector<Corner>& _corner_vec);
-    cv::Point2f find_centroid(std::vector<cv::Point2f>& _corner_vec);
+        cv::Point translate(cv::Point _ref_pt, cv::Point _moved_pt);
+        cv::Point get_centroid(std::vector<cv::Point> p1);
 
-    cv::Point2f translation(cv::Point2f p1, cv::Point2f p2);
-    std::vector<cv::Point2f> move_points(cv::Point2f _dist, std::vector<cv::Point2f> _corners);
-
-    double distance(cv::Point2f p1, cv::Point2f p2);
-    std::vector<double> angles(std::vector<cv::Point2f>& _corners_vec, cv::Point2f center);
-
-    std::vector<cv::Point2f> ordering(std::vector<cv::Point2f>& _corners);
+        std::vector<cv::Point> angle_ordering(std::vector<cv::Point>& _corners);
+        std::vector<Corner> ordering_corner(std::vector<Corner>& _corners);
 
     Calculate(){}
     ~Calculate(){}
 };
 
-cv::Point2f Calculate::find_centroid(std::vector<Corner>& _corner_vec)
+double Calculate::get_distance(cv::Point p1, cv::Point p2)
 {
-    ROS_INFO("FIND CENTROID");
-
-    cv::Point2f center;
-    double cen_x(0.0), cen_y(0.0);
-
-    for(int i = 0; i < _corner_vec.size(); i++)
-    {
-        cen_x += _corner_vec[i].coord.x;
-        cen_y += _corner_vec[i].coord.y;
-    }
-
-    center.x = cen_x / _corner_vec.size();
-    center.y = cen_y / _corner_vec.size();
-
-    return center;
+    double dist;
+    dist = std::sqrt(std::pow((p1.x-p2.x),2)+std::pow((p1.y-p2.y),2));
+    return dist;
 }
 
-cv::Point2f Calculate::find_centroid(std::vector<cv::Point2f>& _corner_vec)
+double Calculate::get_angle(cv::Point p1, cv::Point p2)
 {
-    ROS_INFO("FIND CENTROID");
-
-    cv::Point2f center;
-    double cen_x(0.0), cen_y(0.0);
-
-    for(int i = 0; i < _corner_vec.size(); i++)
-    {
-        cen_x += _corner_vec[i].x;
-        cen_y += _corner_vec[i].y;
-    }
-
-    center.x = cen_x / _corner_vec.size();
-    center.y = cen_y / _corner_vec.size();
-
-    return center;
+    return std::atan2(p2.y-p1.y, p2.x-p1.x);
 }
 
-cv::Point2f Calculate::translation(cv::Point2f p1, cv::Point2f p2)
+int Calculate::get_min_index(std::vector<double> _vector)
 {
-    ROS_INFO("TRANSLATION");
+    return std::min_element(_vector.begin(), _vector.end())-_vector.begin();
+}
 
-    cv::Point2f trans;
-
-    trans.x = p2.x - p1.x;
-    trans.y = p2.y - p1.y;
-
+cv::Point Calculate::translate(cv::Point _ref_pt, cv::Point _moved_pt)
+{
+    cv::Point trans;
+    trans.x = _moved_pt.x-_ref_pt.x;
+    trans.y = _moved_pt.y-_ref_pt.y;
     return trans;
 }
 
-std::vector<cv::Point2f> Calculate::move_points(cv::Point2f _dist, std::vector<cv::Point2f> _corners)
+cv::Point Calculate::get_centroid(std::vector<cv::Point> p1)
 {
-    ROS_INFO("MOVE POINTS");
+    cv::Point center(0,0);
+    for(int i = 0; i < p1.size(); i++)
+    {
+        center.x += p1[i].x;
+        center.y += p1[i].y;
+    }
+    center.x /= p1.size();
+    center.y /= p1.size();
+    return center;
+}
 
-    std::vector<cv::Point2f> moved_points;
-    moved_points.clear();
+std::vector<cv::Point> Calculate::angle_ordering(std::vector<cv::Point>& _corners)
+{
+    cv::Point centroid(0,0);
+    std::vector<double> angle_vec;
+    std::vector<cv::Point> ordered_corners;
+    for(const auto& corner : _corners)
+    {
+        centroid.x += corner.x;
+        centroid.y += corner.y;
+    }
+    centroid.x /= _corners.size();
+    centroid.y /= _corners.size();
+
+    for(const auto& corner : _corners)
+    {
+        double angle = get_angle(centroid, corner);
+        angle_vec.push_back(angle);
+    }
 
     for(int i = 0; i < _corners.size(); i++)
     {
-        cv::Point2f moved_point;
-        moved_point = _corners[i] - _dist;
-        moved_points.push_back(moved_point);
-    }
-
-    return moved_points;
-}
-
-double Calculate::distance(cv::Point2f p1, cv::Point2f p2)
-{
-    return std::sqrt(std::pow((p1.x-p2.x),2) + std::pow((p1.y-p2.y),2));
-}
-
-std::vector<double> Calculate::angles(std::vector<cv::Point2f>& _corners_vec, cv::Point2f center)
-{
-    ROS_INFO("ANGLES");
-
-    std::vector<double> angle_vec;
-    for(const auto& corner : _corners_vec)
-    {
-        double angle = std::atan2(corner.y-center.y, corner.x-center.x);
-        angle_vec.push_back(angle);
-    }
-    return angle_vec;
-}
-
-std::vector<cv::Point2f> Calculate::ordering(std::vector<cv::Point2f>& _corners_vec)
-{
-    ROS_INFO("ORDERING");
-
-    cv::Point2f centroid;
-    std::vector<double> angle_vec;
-    std::vector<cv::Point2f> ordered_corners;
-
-    centroid = find_centroid(_corners_vec);
-    angle_vec = angles(_corners_vec, centroid);
-
-    for(int i = 0; i < _corners_vec.size(); ++i)
-    {
-        int min_idx = std::min_element(angle_vec.begin(), angle_vec.end())-angle_vec.begin();
-        ordered_corners.push_back(_corners_vec[min_idx]);
+        int min_idx = get_min_index(angle_vec);
+        ordered_corners.push_back(_corners[min_idx]);
         angle_vec[min_idx] = INFINITY;
     }
 
     return ordered_corners;
+}
+
+bool compare_label(const Corner& _corner_a, const Corner& _corner_b)
+{
+    return _corner_a.label < _corner_b.label;
+}
+
+std::vector<Corner> Calculate::ordering_corner(std::vector<Corner>& _corners)
+{
+    std::sort(_corners.begin(), _corners.end(), compare_label);
+
+    return _corners;
 }

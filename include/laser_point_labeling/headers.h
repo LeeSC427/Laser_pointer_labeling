@@ -7,6 +7,7 @@
 #include <ctime>
 #include <cmath>
 #include <mutex>
+#include <climits>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
