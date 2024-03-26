@@ -11,4 +11,5 @@ class Corner
     Corner(){}
     ~Corner(){}
 };
+
 #endif
