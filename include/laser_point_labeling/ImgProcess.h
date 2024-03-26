@@ -21,7 +21,7 @@ class ImgProcess
         std::vector<cv::Point> find_contour(cv::Mat& _img, cv::Mat& _proc_img);
         std::vector<Corner> find_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point> _contours);
         std::vector<Corner> find_first_corners(std::vector<cv::Point2f>& _corners);
-        std::vector<Corner> find_recur_corners(std::vector<cv::Point2f>& _corners);
+        std::vector<Corner> find_recur_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point2f>& _corners);
 
         std::vector<Corner> matching_point(std::vector<cv::Point2f> _corners, std::vector<cv::Point2f> _moved_corners);
 
@@ -29,6 +29,7 @@ class ImgProcess
 
         cv::Mat resize_image(cv::Mat& _img, double _scale);
         void draw_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<Corner> _cur_corners);
+        void draw_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point2f> _cur_corners);
         void show_videos(cv::Mat& _img, cv::Mat& _proc_img);
 
         void subscribe();
@@ -91,7 +92,7 @@ std::vector<Corner> ImgProcess::find_corners(cv::Mat& _img, cv::Mat& _proc_img, 
         if(is_init)
             cur_corners = find_first_corners(corners);
         else
-            cur_corners = find_recur_corners(corners);
+            cur_corners = find_recur_corners(_img, _proc_img, corners);
         
         if(cur_corners.size() == 4)
         {
@@ -123,17 +124,19 @@ std::vector<Corner> ImgProcess::find_first_corners(std::vector<cv::Point2f>& _co
     for(int i = 0; i < ordered_corners.size(); i++)
     {
         corner.coord = ordered_corners[i];
-        corner.label = i;
+        corner.label = i+1;
 
         temp_corners.push_back(corner);
     }
+
+    prev_corners = temp_corners;
 
     is_init = false;
 
     return temp_corners;
 }
 
-std::vector<Corner> ImgProcess::find_recur_corners(std::vector<cv::Point2f>& _corners)
+std::vector<Corner> ImgProcess::find_recur_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point2f>& _corners)
 {
     ROS_INFO("FIND RECUR CORNERS");
 
@@ -148,7 +151,9 @@ std::vector<Corner> ImgProcess::find_recur_corners(std::vector<cv::Point2f>& _co
         prev_center = calculate.find_centroid(prev_corners);
         cur_center = calculate.find_centroid(_corners);
         center_dist = calculate.translation(prev_center, cur_center);
+        ROS_INFO("TRANSLATION: %lf, %lf", center_dist.x, center_dist.y);
         moved_corners = calculate.move_points(center_dist, _corners);
+        draw_corners(_img, _proc_img, moved_corners);
         temp_corners = matching_point(_corners, moved_corners);
     }
     else
@@ -166,23 +171,20 @@ std::vector<Corner> ImgProcess::matching_point(std::vector<cv::Point2f> _corners
 
     std::vector<Corner> temp_corners;
     Corner corner;
-    for(int i = 0; i < _moved_corners.size(); i++)
+    std::vector<double> dist_vec;
+    for(int i = 0; i < _moved_corners.size(); ++i)
     {
         double min_dist = std::numeric_limits<double>::infinity();
         int min_index;
-        for(int j = 0; j < prev_corners.size(); j++)
+        for(int j = 0; j < prev_corners.size(); ++j)
         {
             double dist = calculate.distance(_moved_corners[i], prev_corners[j].coord);
-
-            if(min_dist > dist)
-            {
-                min_dist = dist;
-                min_index = j;
-            }
+            dist_vec.push_back(dist);
         }
+        min_index = std::min_element(dist_vec.begin(), dist_vec.end())-dist_vec.begin();
         ROS_INFO("CORNER %d GOES TO PREVIOUS CORNER %d", (i+1), min_index+1);
         corner.coord = _corners[min_index];
-        corner.label = min_index + 1;
+        corner.label = prev_corners[min_index].label;
 
         temp_corners.push_back(corner);
     }
@@ -220,16 +222,32 @@ void ImgProcess::draw_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<Cor
 
     for(int i = 0; i < _cur_corners.size(); i++)
     {
-        cv::circle(_img, _cur_corners[i].coord, 3, cv::Scalar(127,0,0), -1);
+        cv::circle(_img, _cur_corners[i].coord, 3, cv::Scalar(0,0,255), -1);
         cv::putText(_img, std::to_string(_cur_corners[i].label), _cur_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,255), 2);
         cv::circle(_proc_img, _cur_corners[i].coord, 3, cv::Scalar(127,0,0), -1);
         cv::putText(_proc_img, std::to_string(_cur_corners[i].label), _cur_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,255,0), 2);
     }
-    for(int i = 0; i < prev_corners.size(); i++)
+    //for(int i = 0; i < prev_corners.size(); i++)
+    //{
+    //    cv::circle(_img, prev_corners[i].coord, 3, cv::Scalar(255,0,0), -1);
+    //    cv::putText(_img, std::to_string(prev_corners[i].label), prev_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,0,0), 2);
+    //}
+}
+
+void ImgProcess::draw_corners(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point2f> _cur_corners)
+{
+    ROS_INFO("DRAW CORNERS");
+
+    for(int i = 0; i < _cur_corners.size(); i++)
     {
-        cv::circle(_img, prev_corners[i].coord, 3, cv::Scalar(127,0,0), -1);
-        cv::putText(_img, std::to_string(prev_corners[i].label), prev_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,0,0), 2);
+        cv::circle(_img, _cur_corners[i], 3, cv::Scalar(0,0,255), -1);
+        cv::putText(_img, std::to_string(i+1), _cur_corners[i], cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,255), 2);
     }
+    //for(int i = 0; i < prev_corners.size(); i++)
+    //{
+    //    cv::circle(_img, prev_corners[i].coord, 3, cv::Scalar(255,0,0), -1);
+    //    cv::putText(_img, std::to_string(prev_corners[i].label), prev_corners[i].coord, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,0,0), 2);
+    //}
 }
 
 void ImgProcess::show_videos(cv::Mat& _img, cv::Mat& _proc_img)

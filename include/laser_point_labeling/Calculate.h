@@ -33,8 +33,8 @@ cv::Point2f Calculate::find_centroid(std::vector<Corner>& _corner_vec)
         cen_y += _corner_vec[i].coord.y;
     }
 
-    center.x = cen_x /= _corner_vec.size();
-    center.y = cen_y /= _corner_vec.size();
+    center.x = cen_x / _corner_vec.size();
+    center.y = cen_y / _corner_vec.size();
 
     return center;
 }
@@ -52,8 +52,8 @@ cv::Point2f Calculate::find_centroid(std::vector<cv::Point2f>& _corner_vec)
         cen_y += _corner_vec[i].y;
     }
 
-    center.x = cen_x /= _corner_vec.size();
-    center.y = cen_y /= _corner_vec.size();
+    center.x = cen_x / _corner_vec.size();
+    center.y = cen_y / _corner_vec.size();
 
     return center;
 }
@@ -116,7 +116,7 @@ std::vector<cv::Point2f> Calculate::ordering(std::vector<cv::Point2f>& _corners_
     centroid = find_centroid(_corners_vec);
     angle_vec = angles(_corners_vec, centroid);
 
-    for(int i = 0; i < _corners_vec.size(); i++)
+    for(int i = 0; i < _corners_vec.size(); ++i)
     {
         int min_idx = std::min_element(angle_vec.begin(), angle_vec.end())-angle_vec.begin();
         ordered_corners.push_back(_corners_vec[min_idx]);
