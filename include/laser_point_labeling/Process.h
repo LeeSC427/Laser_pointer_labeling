@@ -20,10 +20,10 @@ class Process
         std::vector<cv::Point> Find_contour(cv::Mat& _img, cv::Mat& _proc_img);
         std::vector<cv::Point> Find_corner(cv::Mat& _proc_img, std::vector<cv::Point>& _contour);
 
-        std::vector<Corner> find_first_corner(cv::Mat& _proc_img, std::vector<cv::Point>& _corner_vec);
-        std::vector<Corner> find_matching_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point> _corners);
+        std::vector<Corner> Find_first_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point>& _corner_vec);
+        //std::vector<Corner> Find_matching_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point> _corner_vec);
     
-        void Draw_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<Corner>& _corner_vec);
+        void Draw_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<Corner> _corner_vec);
         void Show_video(cv::Mat& _img, cv::Mat& _proc_img);
     Process(){}
     ~Process(){}
@@ -49,6 +49,13 @@ void Process::loop(const sensor_msgs::ImageConstPtr& _msg)
     cv::Mat img;
     cv_ptr->image.copyTo(img);
     mtx_img.unlock();
+
+    cv::Mat proc_img = Preprocess(img);
+    std::vector<cv::Point> contour = Find_contour(img, proc_img);
+    std::vector<cv::Point> corner_vec = Find_corner(proc_img, contour);
+    std::vector<Corner> ordered_corner_vec = Find_first_corner(img, proc_img, corner_vec);
+
+    Show_video(img, proc_img);
 }
 
 cv::Mat Process::Preprocess(cv::Mat& _img)
@@ -103,4 +110,58 @@ std::vector<cv::Point> Process::Find_corner(cv::Mat& _proc_img, std::vector<cv::
         corners.push_back(_corner);
     }
     return corners;
+}
+
+std::vector<Corner> Process::Find_first_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point>& _corner_vec)
+{
+    std::vector<cv::Point> ordered_vec;
+    std::vector<Corner> ordered_corner;
+
+    ordered_vec = cal.angle_ordering(_corner_vec);
+    for(int i = 0; i < ordered_vec.size(); i++)
+    {
+        Corner corner;
+        corner.coord = ordered_vec[i];
+        corner.label = i;
+        ordered_corner.push_back(corner);
+        ROS_INFO("Corner %d Coordinate: (%d, %d)", i, corner.coord.x, corner.coord.y);
+    }
+    return ordered_corner;
+}
+
+//std::vector<Corner> Process::Find_matching_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<cv::Point> _corner_vec)
+//{
+//
+//}
+
+void Process::Draw_corner(cv::Mat& _img, cv::Mat& _proc_img, std::vector<Corner> _corner_vec)
+{
+    for(int i = 0; i < _corner_vec.size(); i++)
+    {
+        cv::circle(_img, _corner_vec[i].coord, 4, cv::Scalar(0,0,255), -1);
+        cv::putText(_img, std::to_string(_corner_vec[i].label), _corner_vec[i].coord, cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(255,0,0), 3);
+    }
+}
+
+void Process::Show_video(cv::Mat& _img, cv::Mat& _proc_img)
+{
+    cv::Mat resize_img;
+    cv::Mat resize_proc_img;
+
+    if(_img.cols >= 1920 || _img.rows >= 1080)
+    {
+        cv::resize(_img, resize_img, cv::Size(_img.size[1] / 2, _img.size[0] / 2));
+        cv::resize(_proc_img, resize_proc_img, cv::Size(_proc_img.size[1] / 2, _proc_img.size[0] / 2));
+    }
+    else
+    {
+        resize_img = _img;
+        resize_proc_img = _proc_img;
+    }
+
+    cv::imshow("Original image", resize_img);
+    cv::imshow("Filtered image", resize_proc_img);
+    cv::moveWindow("Original image", 960, 0);
+    cv::moveWindow("Filtered image", 960, 640);
+    cv::waitKey(1);
 }

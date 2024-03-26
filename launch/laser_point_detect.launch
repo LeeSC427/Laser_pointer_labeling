@@ -151,6 +151,6 @@
     </include>
   </group>
 
-  <node pkg="laser_point_labeling" type="laser_point_labeling" name="laser_point_labeling" output="log">
+  <node pkg="laser_point_labeling" type="laser_point_labeling" name="laser_point_labeling" output="screen">
   </node>
 </launch>

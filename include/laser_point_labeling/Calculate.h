@@ -11,7 +11,7 @@ class Calculate
         cv::Point get_centroid(const std::vector<cv::Point>& _p1);
 
         std::vector<cv::Point> angle_ordering(const std::vector<cv::Point>& _corners);
-        std::vector<Corner> label_ordering_corner(const std::vector<Corner>& _corners);
+        std::vector<Corner> label_ordering_corner(std::vector<Corner> _corners);
     Calculate(){}
     ~Calculate(){}
 };
@@ -29,7 +29,7 @@ double Calculate::get_angle(const cv::Point& _p1, const cv::Point& _p2)
     return angle;
 }
 
-int get_min_index(const std::vector<double>& _vector)
+int Calculate::get_min_index(const std::vector<double>& _vector)
 {
     return std::min_element(_vector.begin(), _vector.end())-_vector.begin();
 }
@@ -75,13 +75,13 @@ std::vector<cv::Point> Calculate::angle_ordering(const std::vector<cv::Point>& _
     return ordered_corners;
 }
 
-std::vector<Corner> Calculate::label_ordering_corner(const std::vector<Corner>& _corners)
-{
-    std::sort(_corners.begin(), _corners.end(), compare_label);
-    return _corners;
-}
-
 bool compare_label(const Corner& _corner_1, const Corner& _corner_2)
 {
     return _corner_1.label < _corner_2.label;
+}
+
+std::vector<Corner> Calculate::label_ordering_corner(std::vector<Corner> _corners)
+{
+    std::sort(_corners.begin(), _corners.end(), compare_label);
+    return _corners;
 }
